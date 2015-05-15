@@ -1,0 +1,24 @@
+<!-- including headers stored in this file. -->
+<link rel="import" href="headersX-EditableEmitter.html">
+
+<div id="container" class="row">
+<div id = "innerContainer" class="controls controls-row">
+
+<script>
+    var rowNumber = 0;
+    var selectBoxNumber = 0;
+    var selectMenuId = 0;
+    var titleBar = "Enter arguments";
+    var defaultTags = "int, float, double"
+    addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+
+
+</script>
+
+</div>
+<input type = "button" name="Add Params List" value="Add Param" onclick="addSelectBox('innerContainer', rowNumber, selectBoxIncrement(rowNumber) , titleBar, defaultTags);">
+</div>

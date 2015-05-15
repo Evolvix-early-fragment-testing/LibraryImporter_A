@@ -1,0 +1,109 @@
+<!-- including headers stored in this file. -->
+<link rel="import" href="headersX-Editable.html">
+
+<script>
+var selectBoxInRowNo = new Array();
+var rowNumber = 0;
+var selectBoxNumber = 0;
+var selectMenuId = 0;
+var titleBar = "Enter arguments";
+var defaultTags = "int, float, double";
+
+
+// xEditableSelectBox("tags-editable-1", 1,  "Enter arguments", "alpha, beta, gamma")
+function xEditableSelectBox(id, dataPk, dataOriginalTitle, defaultSelectTags) {
+    return $.parseHTML("<span class='tags' id='" + id + "' data-toggle='manual' data-type='select2' data-pk='" + dataPk + "' data-original-title='" + dataOriginalTitle +"' >" + defaultSelectTags + "</span>");
+}
+
+// xEditableEditButton("tags-edit-1", "tags-editable-1")
+function xEditableEditButton(id, dataEditable) {
+    return $.parseHTML("<a href='#' id='" + id +"' data-editable='" + dataEditable + "'><i class='icon-pencil'></i></a>");
+}
+
+function selectBoxInRow(rowNumber) {
+    // check for out of bound input.
+    if (rowNumber >= selectBoxInRowNo.length ||
+        rowNumber < 0 ||
+        undefined === selectBoxInRowNo[rowNumber])
+        return 0;
+
+    return selectBoxInRowNo[rowNumber];
+}
+
+function selectBoxIncrement(rowNumber)
+{
+    // check for out of bound input.
+    if (rowNumber >= selectBoxInRowNo.length)
+        selectBoxInRowNo[rowNumber] = 0;
+    if (rowNumber < 0 ||
+        undefined === selectBoxInRowNo[rowNumber])
+        return 0;
+
+    return ++selectBoxInRowNo[rowNumber];
+}
+
+function addSelectBox(parentDivId, rowNumber, selectBoxNumber, titleBar, defaultTags)
+{
+    var selectMenuId = (0 == selectBoxNumber) ? selectBoxIncrement(rowNumber) : selectBoxNumber;
+    var parentDiv = document.getElementById(parentDivId);
+    var newDiv = document.createElement('div');
+    var divId = rowNumber + "Menu" + selectMenuId;
+
+    var editable = xEditableSelectBox("tags-editable-"+ divId, divId, titleBar, defaultTags);
+    var button = xEditableEditButton("tags-edit-" + divId, "tags-editable-" + divId);
+
+    $(editable).editable({
+        placement: 'right',
+        select2: {
+            tags: ['int', 'float', 'double'],
+            tokenSeparators: [",", " "]
+        },
+    });
+
+    $(button).click(function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        $(editable).editable('toggle');
+    });
+
+    $(newDiv).append(editable);
+    $(newDiv).append(button);
+
+    parentDiv.appendChild(newDiv);
+}
+
+
+// xEditableDivWrapper("tags-edit-1", "tags-editable-1")
+function xEditableDivWrapper(rowNumber) {
+    return $.parseHTML("<div id='containerRow" + rowNumber +"' class='row selectBoxContainer'> <div id ='innerContainerRow" + rowNumber +"' class='controls controls-row'>  </div></div>");
+}
+
+// initSelectBox4CurrRow('tr" + rowNumber +"', rowNumber)
+function initSelectBox4CurrRow(parentDivId, rowNumber)
+{
+    var parentDiv = document.getElementById(parentDivId);
+    var newDiv = document.createElement('div');
+    var innerDivs4SelectBox = xEditableDivWrapper(rowNumber)
+    $(newDiv).append(innerDivs4SelectBox);
+    parentDiv.appendChild(newDiv);
+    
+    //addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+}
+
+// Call this function first in the html file to initialize
+// the global variables required for the X-Editable.
+function initSelectBox4CurrPage()
+{
+    rowNumber = 0;
+    selectBoxNumber = 0;
+    selectMenuId = 0;
+    titleBar = "Enter arguments";
+    defaultTags = "int, float, double"
+    
+    // addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    // addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    // addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    // addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    // addSelectBox("innerContainerRow" + rowNumber, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+}
+</script>

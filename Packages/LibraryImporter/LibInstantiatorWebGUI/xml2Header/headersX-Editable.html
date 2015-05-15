@@ -1,0 +1,40 @@
+<!--
+********************************************************************************
+Header file for includes needed for x-editable Select2 menu with auto suggest option.
+********************************************************************************
+<!--
+This CSS is missing.
+  <link rel="stylesheet" type="text/css" href="/css/normalize.css">
+-->
+<script type='text/javascript' src='http://code.jquery.com/jquery-1.9.1.js'></script>
+<script type="text/javascript" src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+<link rel="stylesheet" type="text/css" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+
+<!--
+This CSS is missing.
+<link rel="stylesheet" type="text/css" href="/css/result-light.css">
+-->
+<script type='text/javascript' src="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/js/bootstrap.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/css/bootstrap-combined.min.css">
+<link rel="stylesheet" type="text/css" href="http://vitalets.github.com/x-editable/assets/x-editable/bootstrap-editable/css/bootstrap-editable.css">
+<script type='text/javascript' src="http://vitalets.github.com/x-editable/assets/x-editable/bootstrap-editable/js/bootstrap-editable.js"></script>
+<script type='text/javascript' src="http://vitalets.github.com/x-editable/assets/select2/select2.js"></script>
+<link rel="stylesheet" type="text/css" href="http://vitalets.github.com/x-editable/assets/select2/select2.css">
+<script type='text/javascript' src="http://vitalets.github.com/x-editable/assets/mockjax/jquery.mockjax.js"></script>
+
+<style type='text/css'>
+    .selectBoxContainer {
+     margin: 5px 0px 0px 0px;
+}
+  </style>
+<script type='text/javascript'>//<![CDATA[
+$(window).load(function () {
+  $.fn.editable.defaults.mode = 'popover';
+
+  $.mockjax({
+    url: '/post',
+    status: 200,
+    responseTime: 200
+  });
+}); //]]>  
+</script>

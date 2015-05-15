@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html>
+<!-- including headers stored in this file. -->
+
+ <link rel="import" href="headersX-EditableEmitter.html">
+
+
+<!-- Data Tables -->
+
+    <link rel="stylesheet" type="text/css" href="media/css/jquery.dataTables.css">
+    <style type="text/css" class="init">
+
+    div.dataTables_wrapper {
+        margin-bottom: 3em;
+    }
+
+    </style>
+<!--    <script type="text/javascript" language="javascript" src="media/js/jquery.js"></script>  -->
+    <script type="text/javascript" language="javascript" src="media/js/jquery.dataTables.js"></script>
+
+    <script type="text/javascript" language="javascript" class="init">
+
+$(document).ready(function() {
+    $('table.display').dataTable( {
+        stateSave: false,
+        "lengthMenu": [[10, -1, 25, 50, 100, 250], [10, "All", 25, 50, 100, 250]]
+    }
+    );
+} );
+
+    </script>
+
+
+<!-- -->
+<body>
+
+<script type="text/javascript" language="javascript">
+var xhttpObjMap = {};
+var selectBox = {};
+var indentDictionary = {};
+
+// id's of various table cells
+var idFuncDemangledPrefix = "idFuncDemangled";
+var idMemberTypePrefix = "idMemberType";
+var idFuncNewNamePrefix = "idFuncNewName";
+var idFuncOrigNamePrefix = "idFuncOrigNameOnly";
+var idFuncOrigArgsPrefix = "idFuncOrigArgs";
+var idFuncPrefixForLib = "idFuncPrefixForLib";
+var idFuncSuffixForLib = "idFuncSuffixForLib";
+
+
+function htmlEscape(str) {
+    return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+}
+
+function loadXMLDoc(dname)
+{
+    var xhttp;
+
+    if (xhttpObjMap[dname] !== undefined)
+    {
+        return xhttpObjMap[dname];
+    }
+
+    if (window.XMLHttpRequest)
+    {
+        xhttp=new XMLHttpRequest();
+    }
+    else
+    {
+        xhttp=new ActiveXObject("Microsoft.XMLHTTP");
+    }
+    xhttp.open("GET",dname,false);
+    try
+    {
+        xhttp.responseType="msxml-document"
+    }
+    catch(err)
+    {
+
+    }
+    // Helping IE
+    xhttp.send("");
+    xhttpObjMap[dname] = xhttp;
+    return xhttp;
+}
+
+function getXPathData(dname, path)
+{
+    var xhttpObj=loadXMLDoc(dname);
+    var xml=xhttpObj.responseXML;
+    var xpathDataStr = [];
+
+
+    // code for IE
+    if (window.ActiveXObject || xhttpObj.responseType=="msxml-document")
+    {
+        xml.setProperty("SelectionLanguage","XPath");
+        nodes=xml.selectNodes(path);
+        for (i=0;i<nodes.length;i++)
+        {
+          //document.write(nodes[i].childNodes[0].nodeValue);
+          document.write(nodes[i]);
+          document.write("<br>");
+          xpathDataStr.push(nodes[i].value);
+        }
+    }
+
+    // code for Chrome, Firefox, Opera, etc.
+    else if (document.implementation && document.implementation.createDocument)
+    {
+    var nodes=xml.evaluate(path, xml, null, XPathResult.ANY_TYPE, null);
+    var result=nodes.iterateNext();
+
+      while (result)
+      {
+        //document.write("<hr><br><br><b> printing node number in while loop:<br>");
+        //document.write(nodes[i].childNodes[0].nodeValue);
+        //document.write(result.value);
+        xpathDataStr.push(result);
+
+        result=nodes.iterateNext();
+
+      }
+    }
+    return xpathDataStr;
+}
+
+function extractFunctionsProlog(dname, namespaceName, tableId, checkBoxName)
+{
+
+    document.write("<div id='funcList' style='background-color: #e1ffff;' >");
+    document.write("<hr><h3><u> All members found in namespace</u> = " + namespaceName + "</h3><hr>");
+
+
+    var strCheckBoxName  = [{value: 'Function', text: 'Function' },
+        {value: 'Class', text: 'Class' },
+        {value: 'Namespace', text: 'Namespace' },
+        {value: 'Typedef', text: 'Typedef' },
+        {value: 'Enumeration', text: 'Enumeration' },
+        {value: 'Struct', text: 'Struct' },
+        {value: 'Variable', text: 'Variable' },
+        {value: 'OperatorFunction', text: 'OperatorFunction' },
+        ];
+    generateCheckBox(checkBoxName, strCheckBoxName, "'" + tableId + "'");
+
+
+    document.write("<br/><br/><br/><table id='" + tableId + "' border='1'  class='display'  cellspacing='0' width='95%'> <thead> <tr> <th>Select</th><th>Sr<br>No</th> <th>Member <br>Position</th><th>Member <br>ID</th> <th>Function demangled name </th> <th> Member type </th> <th> New Func name</th><th> Params list</th><th>Add Params</th><th>Namespace name</th></tr></thead>");
+}
+
+function extractFunctionsEpilog(dname, namespaceName, tableId, checkBoxName)
+{
+    document.write("</table> </div>");
+    selectBoxSize = srNo;
+    //showOnlySelectedItem(" '" + checkBoxName + "' ", tableId );
+    //$('table.display').DataTable().column(5).search("", true, false).draw();
+}
+
+
+
+function extractFunctions(dname, namespaceName, selectBoxName, tableId, checkBoxName)
+{
+    var path ="//Namespace[@name='"+namespaceName+"']";
+    var xpathResult = getXPathData(dname, path);
+
+    var demangledName = "";
+    var demangledNamespace = xpathResult[0].attributes.demangled.nodeValue;
+    var funcName = " ";
+
+    var members = xpathResult[0].attributes.members.nodeValue;
+    var arrFuncWithNameSpace;
+    var strFuncNameWithoutNamespace;
+
+    var nodeFuncPrefixForLib = document.getElementById(idFuncPrefixForLib);
+    var nodeFuncSuffixForLib = document.getElementById(idFuncSuffixForLib);
+    
+    var strFuncPrefixForLib = nodeFuncPrefixForLib.value.toString();
+    var strFuncSuffixForLib = nodeFuncSuffixForLib.value.toString();
+    
+    var strFuncNewNamePrefixed = "";
+    for (var i=0;i<xpathResult.length;i++)
+    {
+        var eachMemberIdArray = members.trim().split(" ");
+        for (var j = 0; j < eachMemberIdArray.length;j++)
+        {
+                // lets get the tags that have this ID field
+                // var path ="//*[@id='" + eachMemberIdArray[j] + "']/descendant-or-self::tezt()";
+                var path ="//*[@id='" + eachMemberIdArray[j] + "']";
+                var allNamespaceMembers = getXPathData(dname, path)
+
+                if (0 == allNamespaceMembers.length)
+                    continue;
+
+
+                for (var k = 0; k < allNamespaceMembers.length;k++)
+                {
+                    funcName = (undefined === allNamespaceMembers[k].attributes.name) ?
+                        " " :
+                        allNamespaceMembers[k].attributes.name.nodeValue;
+
+                     demangledName = (undefined === allNamespaceMembers[k].attributes.demangled) ?
+                        funcName :
+                        allNamespaceMembers[k].attributes.demangled.nodeValue;
+
+
+                    if ("namespace" == (allNamespaceMembers[k].localName).toLowerCase())
+                    {
+                        // Extract child namespace members.
+                        extractFunctions(dname, allNamespaceMembers[k].attributes.name.nodeValue, selectBoxName);
+
+                        strAnchorTagPrefix = "<a href='#' onclick=\"openUrl('xml2headerGenerationUI.html', '" + funcName + "');\" target='_blank'>";
+                        strAnchorTagSuffix = "</a>";
+                    }
+                    else
+                    {
+                        strAnchorTagPrefix = "";
+                        strAnchorTagSuffix = "";
+                    }
+
+                    srNo++;
+                    idFuncDemangled = idFuncDemangledPrefix + srNo;
+                    idFuncOrigName = idFuncOrigNamePrefix + srNo;
+                    idFuncOrigArgs = idFuncOrigArgsPrefix + srNo;
+                    idMemberType = idMemberTypePrefix + srNo;
+                    idFuncNewName = idFuncNewNamePrefix + srNo;
+
+
+                    // Lets get the function name without
+                    if ("function" == (allNamespaceMembers[k].localName).toLowerCase())
+                    {
+                        arrFunNameAndArg = (demangledName).trim().split("(");
+
+                        // comma seperated function arguments.
+                        funcArgs = arrFunNameAndArg[arrFunNameAndArg.length - 1].trim().split(")");
+
+                        // when converting array to string, there seems to be "," at the end.
+                        // So this step removes suffix of ","
+                        funcArgs = funcArgs.toString()[funcArgs.toString().length - 1] == "," ? 
+                                    funcArgs.toString().substring(0, funcArgs.toString().length - 1) : 
+                                    funcArgs.toString();
+                        arrFuncWithNameSpace = (arrFunNameAndArg[0]).split("::");
+                        strFuncNameWithoutNamespace = arrFuncWithNameSpace[arrFuncWithNameSpace.length - 1];
+                        strFuncNewNamePrefixed = strFuncPrefixForLib + strFuncNameWithoutNamespace + strFuncSuffixForLib;
+
+                        defaultTags = funcArgs;
+
+
+                        strFuncOrigName = "<input type=\"hidden\" name=\"" + idFuncOrigName + "\" value=\""+ strFuncNameWithoutNamespace + "\" id=\"" + idFuncOrigName + "\">";
+                        strFuncOrigArgs = "<input type=\"hidden\" name=\"" + idFuncOrigArgs + "\" value=\""+ funcArgs + "\" id=\"" + idFuncOrigArgs + "\">";
+                    }
+                    else
+                    {
+                        defaultTags = "NULL";
+                        strFuncNameWithoutNamespace = "";
+                        strFuncOrigName = " ";
+                        strFuncOrigArgs = " ";
+                        strFuncNewNamePrefixed = "";
+                    }
+
+                    document.write("<tr><td>  <input type='checkbox' name='"+ selectBoxName + "" + srNo +"' id='"+ selectBoxName + "" + srNo +"' value='"+ srNo +"' checked></td>");
+                    document.write("<td> " + srNo + " </td><td> " + j + " </td> <td> " + eachMemberIdArray[j] + "</td>");
+
+                    //document.write('<br><br> Members  = :  <br><pre>' + allNamespaceMembers[k].);
+
+                    // Function name with namespace, followed by 2 hidden text inputs containing
+                    // a) trimmed version of function name
+                    // b) orig. function args
+                    document.write("<td id=\"" + idFuncDemangled + "\"> " + strAnchorTagPrefix + htmlEscape(demangledName) + strAnchorTagSuffix);
+                    document.write(strFuncOrigName);
+                    document.write(strFuncOrigArgs);
+                    document.write("</td>");
+
+
+                    document.write("<td id=\"" + idMemberType + "\">" + allNamespaceMembers[k].localName + "</td>");
+                    document.write("<td> <input type=\"text\" name=\"" + idFuncNewName + "\" value=\""+ strFuncNewNamePrefixed + "\" id=\"" + idFuncNewName + "\"></td>");
+                    document.write("<td id='tr" + rowNumber +"'>");
+                    initSelectBox4CurrRow('tr' + rowNumber, rowNumber);
+                    document.write("</td>");
+
+                    document.write("<td> ");
+                    var divIdentifier = ("innerContainerRow" + rowNumber.toString() + "").toString();
+                    addSelectBox(divIdentifier, rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+
+                    document.write("<input type = 'button' name='Add Params List' value='Add Param'\" onclick=\" addSelectBox('" + divIdentifier + "', " + rowNumber + ", selectBoxIncrement( " + rowNumber + "), titleBar, defaultTags);\"></td>");
+                    document.write("<td> " + demangledNamespace + "</td></tr>");
+
+                    rowNumber++;
+                    /*
+                    //Create an input type dynamically.
+                    var element = document.createElement("input");
+
+                    //Assign different attributes to the element.
+                    element.setAttribute("type", "text");
+                    element.setAttribute("value", demangledName);
+                    element.setAttribute("name", "Test Name");
+                    element.setAttribute("style", "width:700px");
+
+                    var divElem = document.getElementById("funcList");
+                    // divElem.parentNode.appendChild(element);
+                    */
+                }
+        }
+    }
+}
+
+
+function extractTypedefs(dname, namespaceName)
+{
+    var path ="//Namespace[@name='"+namespaceName+"']/@members";
+    var xpathResult = getXPathData(dname, path);
+    var srNo = 0;
+    //path="/bookstore/book[price>35]/title"; //Namespace id="_3219" name="multiprecision"
+    //path="/GCC_XML";
+    //path = "//*[@Namespace]";
+    //path="//*/[@name='multiprecision']";
+    //[@name="multiprecision"]
+
+    document.write("<div id='typedefList' style='background-color: #a8fffe;' >");
+    document.write("<hr><h2><u>Typedefs in namespace</u> = " + namespaceName + "</h2><hr>");
+    document.write(xpathResult[0].nodeValue + "<br/><br/>");
+    document.write("<table  id='typesTable' border='1'  class='display'  cellspacing='0' width='100%' > <thead> <tr><th>Select</th><th>Sr No</th> <th>Member<br>Position</th><th>Member<br> ID</th> <th>Typedef demangled name </th> <th> Typedef name </th> <th> Member<br> type </th></tr> </thead>");
+
+    for (var i=0;i<xpathResult.length;i++)
+    {
+        var eachMemberIdArray = xpathResult[i].nodeValue.trim().split(" ");
+        for (var j = 0; j < eachMemberIdArray.length;j++)
+        {
+                // lets get the tags that have this ID field
+                // var path ="//*[@id='" + eachMemberIdArray[j] + "']/descendant-or-self::tezt()";
+                var path ="//Typedef[@id='" + eachMemberIdArray[j] + "']";
+                var allNamespaceMembers = getXPathData(dname, path);
+
+                // var allNamespaceMembers = getAllTypedefs(dname, namespaceName)
+
+
+                if (0 == allNamespaceMembers.length)
+                    continue;
+
+                for (var k = 0; k < allNamespaceMembers.length;k++)
+                {
+                    var path ="//*[@id='" + allNamespaceMembers[k].attributes.type.nodeValue + "']";
+                    var typedefStr = getXPathData(dname, path)
+
+                    demangledTypedefName = (undefined === typedefStr[0].attributes.name) ?
+                        " " :
+                        typedefStr[0].attributes.name.nodeValue;
+
+                    typedefName = (undefined === allNamespaceMembers[k].attributes.name.nodeValue) ?
+                        " " :
+                        allNamespaceMembers[k].attributes.name.nodeValue;
+
+                    // <input type="checkbox" name="vehicle" value="Bike">
+                    document.write("<tr><td>  <input type='checkbox' name='"+ srNo++ +" value='"+ srNo +"'></td>");
+                    document.write("<td> " + srNo + " </td><td> " + j + " </td><td> " + eachMemberIdArray[j] + "</td>");
+
+                    //document.write('<br><br> Members  = :  <br><pre>' + allNamespaceMembers[k].);
+                    document.write("<td> " + htmlEscape( demangledTypedefName ) + "</td>");
+                    document.write("<td> " + htmlEscape( typedefName ) + "</td>");
+                    document.write("<td>" + allNamespaceMembers[k].localName + "</td>");
+                    document.write("</tr>");
+
+                    /*
+                    //Create an input type dynamically.
+                    var element = document.createElement("input");
+
+                    //Assign different attributes to the element.
+                    element.setAttribute("type", "text");
+                    element.setAttribute("value", htmlEscape( demangledTypedefName + " ---- " + typedefName));
+                    element.setAttribute("name", "Test Name");
+                    element.setAttribute("style", "width:900px");
+
+                    var divElem = document.getElementById("funcList");
+                    divElem.parentNode.appendChild(element);
+                    */
+
+                }
+        }
+    }
+     document.write("</table></div>");
+}
+
+
+function sortXmlOnDemangledName(first, second) {
+      if (first.attributes.demangled.nodeValue > second.attributes.demangled.nodeValue) {
+        return 1;
+      }
+      if (first.attributes.demangled.nodeValue < second.attributes.demangled.nodeValue) {
+        return -1;
+      }
+      // first must be equal to second
+      return 0;
+    }
+
+
+function generateCombo(dname, path, comboName)
+{
+    var xpathResult = getXPathData(dname, path);
+    var name;
+    var id;
+
+
+    xpathResult.sort(sortXmlOnDemangledName);
+
+
+    document.write("<select name='"+ comboName +"'  id='" + comboName + "'>");
+    selectBox[comboName] = new Array();
+    for (var i = 0; i < xpathResult.length; i++)
+    {
+        //name = xpathResult[i].attributes.name.nodeValue;
+        name = xpathResult[i].attributes.demangled.nodeValue;
+        selectBox[comboName].push(xpathResult[i].attributes.name.nodeValue);
+        id = xpathResult[i].attributes.id.nodeValue;
+
+        document.write("<option value='"+ id +"'>"+ name + "</option>");
+    }
+    document.write("</select>");
+    document.write("<button onclick=\"openUrl('xml2headerGenerationUI.html', getSelectedItem('" + comboName + "'));\" >Explore this Namespace </button>");
+}
+
+function initIndent(maxIndent)
+{
+    for (i = 0; i < maxIndent; i++)
+    {
+        strIndent = "";
+        for (j = 0; j < i; j++)
+            strIndent += " ";
+    
+        indentDictionary[i] = strIndent;
+    }
+    
+}
+
+function getIndent(currIndent)
+{
+    return indentDictionary[currIndent];
+}
+
+function getRandomInt(min, max) 
+{
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function generateHeadersFromSelected(selectBoxName)
+{
+    var txtAreaResult = document.getElementById("txtResultBox");
+    var txtNewNamespace = document.getElementById("newNameSpaceName");
+    var strResult = " ";
+    var currIndent = 0;
+    
+    strResult = "namespace " + txtNewNamespace.value.toString();
+    strResult += "\n{ \n";
+    txtAreaResult.innerHTML = strResult;
+    
+    currIndent += 4;
+    for (var i = 1; i <= srNo; i++)
+    {
+        var idFuncDemangled = idFuncDemangledPrefix + i;
+        var idMemberType = idMemberTypePrefix + i;
+        var idFuncNewName = idFuncNewNamePrefix + i;
+        var idSelectBox = selectBoxName + i;
+        var idFuncOrigName = idFuncOrigNamePrefix + i;
+        var idFuncOrigArgs = idFuncOrigArgsPrefix + i;
+
+
+        // Retrieve nodes of table cell.
+        var nodeSelectBox = document.getElementById(idSelectBox);
+        var nodeMemberType = document.getElementById(idMemberType)
+        var nodeFuncDemangled = document.getElementById(idFuncDemangled);
+        var nodeFuncNewName = document.getElementById(idFuncNewName);
+        var nodeFuncOrigName = document.getElementById(idFuncOrigName);
+        var nodeFuncOrigArgs = document.getElementById(idFuncOrigArgs);
+
+        // Retrieve values of table cell.    
+        var strSelectBoxValue = nodeSelectBox.value.toString();
+        var strSelectBoxChecked = nodeSelectBox.checked;
+        var strMemberType = nodeMemberType.innerText.toString();
+        var strFuncDemangled = nodeFuncDemangled.innerText.toString();
+        var strFuncNewName = nodeFuncNewName.value.toString();
+
+        
+        
+        var strCurrFunc = "";
+
+        if ("function" == strMemberType.toLowerCase() && strSelectBoxChecked)
+        {
+            var strFuncOrigName = nodeFuncOrigName.value.toString();
+            var strFuncOrigArgs = nodeFuncOrigArgs.value.toString();
+            var strFuncDemangledWithoutArgs = strFuncDemangled.split("(")[0];
+            
+            var arrFuncOrigArgs = strFuncOrigArgs.split(",");
+            var paramsWithVarName = "";
+            var varName = "";
+            var varList = "";
+            for (var param = 0; param < arrFuncOrigArgs.length; param++)
+            {
+                paramsWithVarName += arrFuncOrigArgs[param].trim();
+                varName = " param" + getRandomInt(1, 100000) + ", ";
+                varList += varName;
+                paramsWithVarName += varName;
+            }
+            
+            //removing the extra ", " from the end.
+            paramsWithVarName = paramsWithVarName.substring(0, paramsWithVarName.length - 2);
+            varList = varList.substring(0, varList.length - 2);
+            
+            strCurrFunc += getIndent(currIndent) + strFuncNewName + "(" + paramsWithVarName + ") \n";
+            strCurrFunc += getIndent(currIndent) + "{ \n";      currIndent += 4;
+            strCurrFunc += getIndent(currIndent) + strFuncDemangledWithoutArgs + "(" + varList + ");\n"; currIndent -= 4;            
+            strCurrFunc += getIndent(currIndent) + "} \n\n";    
+        }
+        else
+        {
+            strCurrFunc = "";
+        }
+
+        //strResult += strCurrFunc;
+        txtAreaResult.innerHTML += strCurrFunc;
+    }
+    currIndent -= 4;
+    strResult = getIndent(currIndent) + "\n} \n";
+    txtAreaResult.innerHTML += strResult;
+}
+
+function copyToClipBoard(resultBox)
+{
+    var txtAreaResult = document.getElementById(resultBox);
+    window.prompt("To copy to clipboard press => Ctrl+C, Enter", txtAreaResult.innerHTML);
+}
+
+function addGenerateCodeBtn(btnName, selectBoxName)
+{
+    document.write("<h3><u>Configuration Panel:</u></h3>");
+    document.write("<h4>Enter name required for the new namespace<input type='text' name='newNameSpaceName' value='newNameSpaceName' id='newNameSpaceName'></h4>");
+    document.write("<h4>Enter name required for the output header File<input type='text' name='fileName' value='newFileName.h' id='newFileName'></h4>");
+    
+    document.write("<h4>Enter prefix for Function name <input type='text' name='" + idFuncPrefixForLib +"' value='E_' id='" + idFuncPrefixForLib +"'></h4>");
+    document.write("<h4>Enter Suffix for Function name <input type='text' name='" + idFuncSuffixForLib +"' value='' id='" + idFuncSuffixForLib +"'></h4>");
+
+    document.write("<h4><u>Data Type Map: </u></h4><br> int = <input type='text' name='evoInt' value='Integer' id='evoInt'>");
+    document.write("<br> float = <input type='text' name='evoFloat' value='float' id='evoFloat'>");
+    document.write("<br> double = <input type='text' name='evoDouble' value='double' id='evoDouble'>");
+
+
+    document.write("<br/><button  id='" + btnName + "' onclick=\"generateHeadersFromSelected('" + selectBoxName + "');\" >Generate Headers From Selected Functions </button>");
+}
+
+
+function addGenerateResultBox(resultBox, btnName)
+{
+    document.write("<td> <textarea rows='30' cols='350' name='"+ resultBox +"' value='" + resultBox + "' id='" + resultBox + "' style='width:700px;'> //Header file generated will be shown here. </textarea></td>");
+    document.write("<button id='" + btnName + "' onclick=\"copyToClipBoard('" + resultBox + "');\" >Copy Result to ClipBoard </button>");
+}
+
+
+
+// strCheckBoxName  = [{value: 'function', text: 'Function' }, {value: 'class', text: 'Class' }, {value: 'namespace', text: 'Namespace' },]
+// generateCheckBox(checkBoxName, strCheckBoxName, tableId)
+function generateCheckBox(checkBoxName, strCheckBoxName, tableId)
+{
+    var value;
+    var text;
+    var id;
+    document.write("<div style='background-color:#5ffefc'>");
+    for (var i = 0; i < strCheckBoxName.length; i++)
+    {
+        id = checkBoxName + i;
+        value = strCheckBoxName[i].value;
+        text = strCheckBoxName[i].text;
+
+        document.write("<input id='" + id + "' type='checkbox' name='" + checkBoxName + "' value='" + value +"' checked style='margin-left:40px;margin-right:10px;'>" + text + "</input>");
+    }
+    document.write("<button onclick=\"showOnlySelectedItem('" + checkBoxName + "', " + tableId + ");\" >Show only selected.</button>");
+    document.write("</div>");
+}
+
+function filterGlobal () {
+    $('#example').DataTable().search(
+        $('#global_filter').val(),
+        $('#global_regex').prop('checked'),
+        $('#global_smart').prop('checked')
+    ).draw();
+}
+
+
+function showOnlySelectedItem(checkBoxName, tableId)
+{
+    var filterStr = "";
+    var checkValues = $('input[name=' + checkBoxName + ']:checked').map(function() {
+        return $(this).attr("value");
+    }).get();
+
+    for (i = 0; i < checkValues.length; i++)
+    {
+        if (i > 0)
+        {
+            filterStr += "|";
+        }
+        filterStr += checkValues[i];
+    }
+
+    //$('#' + tableId ).fnFilter('function', null, true, false);
+    //$('#funcTable').fnFilter('Enumeration|Variable', null, true, false);
+
+    // this one works
+    //$('#funcTable').DataTable().search(filterStr, true, false).draw();
+    $('#' + tableId).DataTable().column(5).search(filterStr, true, false).draw();
+}
+
+function getSelectedItem(comboName)
+{
+    var selectTag = document.getElementById(comboName);
+    return selectBox[comboName][selectTag.selectedIndex];
+}
+
+// getAllTypedefs(dname, namespaceName)
+// Create the combo list.
+// allNamespaceMembers[k].attributes.name.nodeValue
+
+
+function getAllTypedefs(dname, namespaceName)
+{
+    var path ="//Namespace[@name='"+namespaceName+"']/@members";
+    var xpathResult = getXPathData(dname, path);
+    var nodesList = new Array();
+
+    //document.write(xpathResult[0].nodeValue + "<br/><br/>");
+
+    for (var i=0;i<xpathResult.length;i++)
+    {
+        var eachMemberIdArray = xpathResult[i].nodeValue.trim().split(" ");
+        for (var j = 0; j < eachMemberIdArray.length;j++)
+        {
+                // lets get the tags that have this ID field
+                var path ="//Typedef[@id='" + eachMemberIdArray[j] + "']";
+                var allNamespaceMembers = getXPathData(dname, path)
+
+                if (0 == allNamespaceMembers.length)
+                    continue;
+
+                for (var k = 0; k < allNamespaceMembers.length;k++)
+                {
+                    nodesList.push(allNamespaceMembers[k]);
+                    //document.write("<br> " + htmlEscape( allNamespaceMembers[k].attributes.name.nodeValue));
+                }
+        }
+    }
+    return nodesList;
+}
+
+function openUrl(urlName, hashTag)
+{
+    window.open(urlName + "#" + hashTag, "_blank");
+}
+
+function appendHash(hashStr)
+{
+        window.location.hash =hashStr;
+        return false;
+}
+
+var dname = "boostMathFunc.xml";
+var defaultName = "container_detail";
+var hashStr = window.location.hash.substr(1);
+var namespaceName = (hashStr == "") ? "boost" : hashStr;
+var xhttpObj = loadXMLDoc(dname);
+//var namespaceName= "multiprecision"; // std
+var allTypedefs = getAllTypedefs(dname, namespaceName)
+var path ="//Namespace";
+var comboName = "allNamespaces";
+var btnName = "btnGenerateCode";
+var btnNameCopyClipboard = "btnCopyClip";
+var resultBox = "txtResultBox";
+var selectBoxName = "selectBox4Members";
+var selectBoxSize = 0;
+var tableId = "funcTable";
+var checkBoxName = "func1CheckBox";
+
+var srNo = 0;
+var maxIndent = 80;
+
+</script>
+
+<div id="header" style="background-color: #03fdfa;" >
+ <h2><u>All namespaces in current XML file</u></h2>
+
+<script type="text/javascript" language="javascript">
+generateCombo(dname, path, comboName);
+</script>
+<br/><br/>
+</div>
+
+
+<script type="text/javascript" language="javascript">
+
+// Call this function first in the html file to initialize
+// the global variables required for the X-Editable.
+// initSelectBox4CurrPage()
+//addSelectBox("header", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+
+
+    var titleBar = "Enter arguments";
+    var defaultTags = "int, float, double"
+    //addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    //addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    //addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    //addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+    //addSelectBox("innerContainer", rowNumber, selectBoxIncrement(rowNumber), titleBar, defaultTags);
+
+initIndent(maxIndent);
+addGenerateCodeBtn(btnName, selectBoxName);
+
+extractFunctionsProlog(dname, namespaceName, tableId, checkBoxName);
+extractFunctions(dname, namespaceName, selectBoxName, tableId, checkBoxName);
+extractFunctionsEpilog(dname, namespaceName, tableId, checkBoxName);
+
+// Commenting typedef generation logic for now.
+// extractTypedefs(dname, namespaceName);
+
+addGenerateResultBox(resultBox, btnNameCopyClipboard);
+
+generateHeadersFromSelected(selectBoxName);
+</script>
+
+
+</body>
+</html>
+
